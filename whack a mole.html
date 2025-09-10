@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Whack-a-Mole Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .game-container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .game-info {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 30px;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        .score, .timer, .high-score {
+            background: #f0f0f0;
+            padding: 10px 20px;
+            border-radius: 10px;
+            color: #333;
+        }
+
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 30px;
+            max-width: 450px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .hole {
+            width: 120px;
+            height: 120px;
+            background: #8B4513;
+            border-radius: 50%;
+            position: relative;
+            border: 5px solid #654321;
+            cursor: pointer;
+            overflow: hidden;
+            transition: transform 0.1s;
+        }
+
+        .hole:hover {
+            transform: scale(1.05);
+        }
+
+        .mole {
+            width: 80px;
+            height: 80px;
+            background: #D2691E;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) translateY(100px);
+            transition: transform 0.3s ease-out;
+            cursor: pointer;
+            border: 3px solid #A0522D;
+        }
+
+        .mole::before {
+            content: '';
+            position: absolute;
+            top: 15px;
+            left: 20px;
+            width: 8px;
+            height: 8px;
+            background: #000;
+            border-radius: 50%;
+            box-shadow: 20px 0 0 #000;
+        }
+
+        .mole::after {
+            content: '';
+            position: absolute;
+            top: 35px;
+            left: 32px;
+            width: 16px;
+            height: 8px;
+            background: #000;
+            border-radius: 50%;
+        }
+
+        .mole.up {
+            transform: translate(-50%, -50%) translateY(0);
+        }
+
+        .mole.hit {
+            background: #FF6B6B;
+            transform: translate(-50%, -50%) translateY(100px);
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .start-btn {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .start-btn:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+
+        .reset-btn {
+            background: #f44336;
+            color: white;
+        }
+
+        .reset-btn:hover {
+            background: #da190b;
+            transform: translateY(-2px);
+        }
+
+        .start-btn:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .game-over {
+            background: #ff9800;
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            font-size: 1.2em;
+            display: none;
+        }
+
+        @media (max-width: 600px) {
+            .hole {
+                width: 100px;
+                height: 100px;
+            }
+            
+            .mole {
+                width: 70px;
+                height: 70px;
+            }
+            
+            .game-info {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🔨 Whack-a-Mole 🔨</h1>
+        
+        <div class="game-info">
+            <div class="score">Score: <span id="score">0</span></div>
+            <div class="timer">Time: <span id="time">30</span>s</div>
+            <div class="high-score">Best: <span id="highScore">0</span></div>
+        </div>
+
+        <div class="game-board" id="gameBoard">
+            <!-- Holes will be generated by JavaScript -->
+        </div>
+
+        <div class="controls">
+            <button class="start-btn" id="startBtn" onclick="startGame()">Start Game</button>
+            <button class="reset-btn" id="resetBtn" onclick="resetGame()">Reset Score</button>
+        </div>
+
+        <div class="game-over" id="gameOver">
+            <h2>Game Over!</h2>
+            <p>Final Score: <span id="finalScore">0</span></p>
+            <p id="newRecord" style="display: none;">🎉 New High Score! 🎉</p>
+        </div>
+    </div>
+
+    <script>
+        // Game state
+        let gameState = {
+            score: 0,
+            timeLeft: 30,
+            isPlaying: false,
+            highScore: 0,
+            moleTimer: null,
+            gameTimer: null,
+            activeMoles: new Set(),
+            difficulty: 1000 // milliseconds between moles
+        };
+
+        // DOM elements
+        const scoreEl = document.getElementById('score');
+        const timeEl = document.getElementById('time');
+        const highScoreEl = document.getElementById('highScore');
+        const startBtn = document.getElementById('startBtn');
+        const gameBoard = document.getElementById('gameBoard');
+        const gameOverEl = document.getElementById('gameOver');
+        const finalScoreEl = document.getElementById('finalScore');
+        const newRecordEl = document.getElementById('newRecord');
+
+        // Initialize game
+        function initGame() {
+            // Load high score from memory
+            gameState.highScore = parseInt(localStorage.getItem('whackMoleHighScore') || '0');
+            highScoreEl.textContent = gameState.highScore;
+            
+            // Create game board
+            createGameBoard();
+        }
+
+        function createGameBoard() {
+            gameBoard.innerHTML = '';
+            for (let i = 0; i < 9; i++) {
+                const hole = document.createElement('div');
+                hole.className = 'hole';
+                hole.dataset.index = i;
+                
+                const mole = document.createElement('div');
+                mole.className = 'mole';
+                mole.onclick = () => whackMole(i);
+                
+                hole.appendChild(mole);
+                gameBoard.appendChild(hole);
+            }
+        }
+
+        function startGame() {
+            if (gameState.isPlaying) return;
+            
+            gameState.isPlaying = true;
+            gameState.score = 0;
+            gameState.timeLeft = 30;
+            gameState.activeMoles.clear();
+            
+            startBtn.disabled = true;
+            startBtn.textContent = 'Playing...';
+            gameOverEl.style.display = 'none';
+            
+            updateDisplay();
+            startGameTimer();
+            spawnMole();
+        }
+
+        function startGameTimer() {
+            gameState.gameTimer = setInterval(() => {
+                gameState.timeLeft--;
+                updateDisplay();
+                
+                if (gameState.timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function spawnMole() {
+            if (!gameState.isPlaying) return;
+            
+            // Get available holes
+            const availableHoles = [];
+            for (let i = 0; i < 9; i++) {
+                if (!gameState.activeMoles.has(i)) {
+                    availableHoles.push(i);
+                }
+            }
+            
+            if (availableHoles.length === 0) {
+                setTimeout(spawnMole, 500);
+                return;
+            }
+            
+            // Random hole selection
+            const holeIndex = availableHoles[Math.floor(Math.random() * availableHoles.length)];
+            const mole = gameBoard.children[holeIndex].querySelector('.mole');
+            
+            // Show mole
+            gameState.activeMoles.add(holeIndex);
+            mole.classList.add('up');
+            
+            // Hide mole after random time
+            const hideTime = Math.random() * 2000 + 1000; // 1-3 seconds
+            setTimeout(() => {
+                if (gameState.activeMoles.has(holeIndex)) {
+                    hideMole(holeIndex);
+                }
+            }, hideTime);
+            
+            // Spawn next mole
+            const nextSpawnTime = Math.max(500, gameState.difficulty - gameState.score * 10);
+            gameState.moleTimer = setTimeout(spawnMole, nextSpawnTime);
+        }
+
+        function hideMole(holeIndex) {
+            const mole = gameBoard.children[holeIndex].querySelector('.mole');
+            mole.classList.remove('up', 'hit');
+            gameState.activeMoles.delete(holeIndex);
+        }
+
+        function whackMole(holeIndex) {
+            if (!gameState.isPlaying || !gameState.activeMoles.has(holeIndex)) return;
+            
+            const mole = gameBoard.children[holeIndex].querySelector('.mole');
+            mole.classList.add('hit');
+            mole.classList.remove('up');
+            
+            gameState.score += 10;
+            gameState.activeMoles.delete(holeIndex);
+            updateDisplay();
+            
+            // Add hit animation
+            setTimeout(() => {
+                mole.classList.remove('hit');
+            }, 300);
+        }
+
+        function endGame() {
+            gameState.isPlaying = false;
+            clearTimeout(gameState.moleTimer);
+            clearInterval(gameState.gameTimer);
+            
+            // Hide all moles
+            gameState.activeMoles.forEach(holeIndex => {
+                hideMole(holeIndex);
+            });
+            gameState.activeMoles.clear();
+            
+            // Check for high score
+            let isNewRecord = false;
+            if (gameState.score > gameState.highScore) {
+                gameState.highScore = gameState.score;
+                localStorage.setItem('whackMoleHighScore', gameState.highScore.toString());
+                isNewRecord = true;
+            }
+            
+            // Show game over screen
+            finalScoreEl.textContent = gameState.score;
+            newRecordEl.style.display = isNewRecord ? 'block' : 'none';
+            gameOverEl.style.display = 'block';
+            
+            startBtn.disabled = false;
+            startBtn.textContent = 'Start Game';
+            updateDisplay();
+        }
+
+        function resetGame() {
+            if (gameState.isPlaying) {
+                endGame();
+            }
+            
+            gameState.score = 0;
+            gameState.timeLeft = 30;
+            gameState.highScore = 0;
+            localStorage.removeItem('whackMoleHighScore');
+            
+            updateDisplay();
+            gameOverEl.style.display = 'none';
+        }
+
+        function updateDisplay() {
+            scoreEl.textContent = gameState.score;
+            timeEl.textContent = gameState.timeLeft;
+            highScoreEl.textContent = gameState.highScore;
+        }
+
+        // Initialize game on load
+        initGame();
+    </script>
+</body>
+</html>
